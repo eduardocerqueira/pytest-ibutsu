@@ -26,6 +26,18 @@ To push your results to the Ibutsu server, use the ``--ibutsu`` option with the 
 
     pytest --ibutsu http://ibutsu/
 
+
+Alternatively, pytest-ibutsu can upload the test artifact to S3 bucket::
+
+    pytest --ibutsu s3
+
+just remember to load AWS environment variables before using s3 method::
+
+    export AWS_ACCESS_KEY_ID=************
+    export AWS_SECRET_ACCESS_KEY=************
+    export AWS_DEFAULT_REGION=************
+    export AWS_S3_SECURE_CONNECTION=True
+
 Authentication
 --------------
 
