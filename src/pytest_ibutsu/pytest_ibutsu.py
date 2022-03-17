@@ -24,7 +24,6 @@ from ibutsu_client.exceptions import ApiValueError
 from urllib3.exceptions import MaxRetryError
 from urllib3.exceptions import ProtocolError
 
-
 # A list of markers that can be filtered out
 FILTERED_MARKERS = ["parametrize"]
 CA_BUNDLE_ENVS = ["REQUESTS_CA_BUNDLE", "IBUTSU_CA_BUNDLE"]
@@ -506,6 +505,18 @@ class IbutsuArchiver(object):
         res = outcome.get_result()  # will raise if outcome was exception
         res._ibutsu = item._ibutsu
 
+    def s3(self):
+        if not self.run_id:
+            return
+
+        if not self.tar_file:
+            print("not test artifact found")
+
+        print("sending test artifact to S3")
+        from pytest_ibutsu.upload import upload_artifact
+
+        upload_artifact(self.tar_file)
+
 
 class IbutsuSender(IbutsuArchiver):
     """
@@ -630,6 +641,11 @@ class IbutsuSender(IbutsuArchiver):
             print(f"All results were written to archive, partial results can be viewed on: {url}")
         super().output_msg()
 
+    def s3(self):
+        # TODO: not clear if it is needed
+        print("overriding S3?")
+        super().s3()
+
     def shutdown(self):
         super().shutdown()
         print(f"Ibutsu client finishing up...({len(self._sender_cache)} tasks left)...")
@@ -716,7 +732,8 @@ def pytest_configure(config):
         ibutsu_project = config.getini("ibutsu_project")
     if ibutsu_project:
         ibutsu_data.update({"project": ibutsu_project})
-    if ibutsu_server != "archive":
+    # upload to ibutsu
+    if ibutsu_server != "archive" and "s3" not in str(ibutsu_server).lower():
         try:
             print("Ibutsu server: {}".format(ibutsu_server))
             if ibutsu_server.endswith("/"):
@@ -733,8 +750,15 @@ def pytest_configure(config):
         except ApiException:
             print("Error in call to Ibutsu API")
             ibutsu = IbutsuArchiver(extra_data=ibutsu_data)
+    # off-line archive
     else:
         ibutsu = IbutsuArchiver(extra_data=ibutsu_data)
+    # upload S3 bucket
+    if "s3" in str(ibutsu_server).lower():
+        try:
+            ibutsu.s3()
+        except Exception as ex:
+            print(f"{ex}")
     if config.pluginmanager.has_plugin("xdist"):
         if hasattr(config, "workerinput") and config.workerinput.get("run_id"):
             ibutsu.set_run_id(config.workerinput["run_id"])
@@ -781,6 +805,7 @@ def pytest_unconfigure(config):
         ibutsu_instance.shutdown()
         if ibutsu_instance.run_id:
             ibutsu_instance.output_msg()
+            ibutsu_instance.s3()
 
 
 def pytest_addhooks(pluginmanager):

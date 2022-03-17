@@ -62,3 +62,10 @@ target/
 
 #Ipython Notebook
 .ipynb_checkpoints
+
+# artifact test files
+*.tar.gz
+tests/*.tar.gz
+
+# IDE
+.idea
